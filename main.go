@@ -39,12 +39,10 @@ type Author struct {
 	Lastname  string `json:"lastName,omitempty" bson:"lastName,omitempty"`
 }
 
-
 //create the JWT key used to create the signature
 var jwtKey = []byte("my_secret_key")
 
-
-var users = map[string]string {
+var users = map[string]string{
 	"user1": "password1",
 	"user2": "password2",
 }
@@ -66,7 +64,7 @@ var books []Book
 
 //Get all books
 func getBooks(w http.ResponseWriter, r *http.Request) {
-	success, errInt := CheckUserAuthentication(w,r)
+	success, errInt := CheckUserAuthentication(w, r)
 	if success == false {
 		w.WriteHeader(errInt)
 		return
@@ -98,7 +96,7 @@ func getBooks(w http.ResponseWriter, r *http.Request) {
 
 //Get single book
 func getBook(w http.ResponseWriter, r *http.Request) {
-	CheckUserAuthentication(w,r)
+	CheckUserAuthentication(w, r)
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) //Get params
 	id, _ := primitive.ObjectIDFromHex(params["id"])
@@ -116,7 +114,7 @@ func getBook(w http.ResponseWriter, r *http.Request) {
 
 //Create book
 func createBook(w http.ResponseWriter, r *http.Request) {
-	CheckUserAuthentication(w,r)
+	CheckUserAuthentication(w, r)
 	w.Header().Set("Content-Type", "application/json")
 	var book Book
 	_ = json.NewDecoder(r.Body).Decode(&book)
@@ -128,7 +126,7 @@ func createBook(w http.ResponseWriter, r *http.Request) {
 
 //Update book
 func updateBook(w http.ResponseWriter, r *http.Request) {
-	CheckUserAuthentication(w,r)
+	CheckUserAuthentication(w, r)
 	w.Header().Set("Content-Type", "application/json")
 	// params := mux.Vars(r)
 	// for index, item := range books {
@@ -148,7 +146,7 @@ func updateBook(w http.ResponseWriter, r *http.Request) {
 
 //Delete book
 func deleteBook(w http.ResponseWriter, r *http.Request) {
-	CheckUserAuthentication(w,r)
+	CheckUserAuthentication(w, r)
 	w.Header().Set("Content-Type", "application/json")
 	// params := mux.Vars(r)
 	// for index, item := range books {
@@ -181,7 +179,20 @@ func main() {
 	r.HandleFunc("/api/book/{id}", updateBook).Methods("PUT")
 	r.HandleFunc("/api/book/{id}", deleteBook).Methods("DELETE")
 
-	log.Fatal(http.ListenAndServe(":8000", r))
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         ":8080",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// log.Fatal(http.ListenAndServe(":8000", r))
 }
 
 //Configure mongoClient
@@ -206,7 +217,7 @@ func configureMongoCLient() {
 }
 
 //Implementing sign in
-func Signin(w http.ResponseWriter, r *http.Request)  {
+func Signin(w http.ResponseWriter, r *http.Request) {
 	var creds Credentials
 
 	err := json.NewDecoder(r.Body).Decode(&creds)
@@ -225,32 +236,31 @@ func Signin(w http.ResponseWriter, r *http.Request)  {
 
 	expirationTime := time.Now().Add(2 * time.Minute)
 
-	claims := &Claims {
+	claims := &Claims{
 		Username: creds.Username,
-		StandardClaims: jwt.StandardClaims {
+		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 		},
 	}
 
-
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	tokenString, err := token.SignedString(jwtKey)
-	
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name: "token",
-		Value: tokenString,
+		Name:    "token",
+		Value:   tokenString,
 		Expires: expirationTime,
 	})
 }
 
 //handling post authentication route
-func CheckUserAuthentication(w http.ResponseWriter, r *http.Request)(success bool, errInt int)  {
+func CheckUserAuthentication(w http.ResponseWriter, r *http.Request) (success bool, errInt int) {
 	c, err := r.Cookie("token")
 
 	if err != nil {
@@ -264,7 +274,7 @@ func CheckUserAuthentication(w http.ResponseWriter, r *http.Request)(success boo
 
 	claims := &Claims{}
 
-	tkn, err := jwt.ParseWithClaims(tknStr, claims, func (token *jwt.Token)(interface{},error)  {
+	tkn, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
 
@@ -289,7 +299,7 @@ func CheckUserAuthentication(w http.ResponseWriter, r *http.Request)(success boo
 	return
 }
 
-func Refreh(w http.ResponseWriter, r *http.Request)  {
+func Refreh(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("token")
 	if err != nil {
 		if err == http.ErrNoCookie {
@@ -317,7 +327,6 @@ func Refreh(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-
 	// We ensure that a new token is not issued until enough time has elapsed
 	// In this case, a new token will only be issued if the old token is within
 	// 30 seconds of expiry. Otherwise, return a bad request status
@@ -328,9 +337,9 @@ func Refreh(w http.ResponseWriter, r *http.Request)  {
 
 	//Creating a new jwt token
 
-	expirationTime := time.Now().Add(2*time.Minute)
+	expirationTime := time.Now().Add(2 * time.Minute)
 	claims.ExpiresAt = expirationTime.Unix()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256,claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
 
 	if err != nil {
@@ -339,8 +348,8 @@ func Refreh(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name: "token",
-		Value: tokenString,
+		Name:    "token",
+		Value:   tokenString,
 		Expires: expirationTime,
 	})
 }
