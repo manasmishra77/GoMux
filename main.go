@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -185,13 +184,12 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+	err := srv.ListenAndServe()
 
-	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			log.Fatal(err)
-		}
-	}()
-
+	fmt.Println("Starting Server")
+	if err != nil {
+		fmt.Println(err)
+	}
 	// log.Fatal(http.ListenAndServe(":8000", r))
 }
 
